@@ -53,6 +53,46 @@ const INTERACTION_DATABASE = {
   "나프록센": ["아스피린", "와파린", "이부프로펜"],
 };
 
+// 한글 → 영문 검색 매핑 (OpenFDA API용)
+const KOREAN_TO_ENGLISH = {
+  "타이레놀": "tylenol acetaminophen",
+  "아세트아미노펜": "acetaminophen",
+  "이부프로펜": "ibuprofen",
+  "아스피린": "aspirin",
+  "게보린": "aspirin",
+  "오메프라졸": "omeprazole",
+  "로사르탄": "losartan",
+  "메트포르민": "metformin",
+  "리시노프릴": "lisinopril",
+  "아토르바스타틴": "atorvastatin",
+  "로라타딘": "loratadine",
+  "세티리진": "cetirizine",
+  "알프라졸람": "alprazolam",
+  "아졸람": "alprazolam",
+  "암로디핀": "amlodipine",
+  "암피실린": "ampicillin",
+  "아모시실린": "amoxicillin",
+  "세파렉신": "cephalexin",
+  "시메티딘": "cimetidine",
+  "레보플록사신": "levofloxacin",
+  "가바펜틴": "gabapentin",
+  "설파메톡사졸": "sulfamethoxazole",
+  "나프록센": "naproxen",
+  "클로피도그렐": "clopidogrel",
+  "와파린": "warfarin",
+  "오메가3": "omega fish oil",
+  "비타민d": "vitamin d",
+  "콜레칼시페롤": "cholecalciferol",
+  "멜라토닌": "melatonin",
+  "두통약": "acetaminophen ibuprofen",
+  "해열제": "acetaminophen",
+  "소염제": "ibuprofen naproxen",
+  "위장약": "omeprazole",
+  "고혈압약": "amlodipine losartan lisinopril",
+  "당뇨약": "metformin",
+  "수면제": "melatonin",
+};
+
 // 알레르기 성분 매핑
 const ALLERGY_INGREDIENTS = {
   "페니실린": ["아모시실린", "암피실린", "페녹시메틸페니실린", "amoxicillin", "ampicillin"],

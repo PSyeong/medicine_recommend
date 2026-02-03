@@ -28,23 +28,35 @@ navBtns.forEach(btn => {
   });
 });
 
-// Search - OpenFDA (brand, generic)
+// 한글 → 영문 변환
+function toSearchTerms(query) {
+  const q = query.trim().replace(/"/g, '').toLowerCase();
+  const mapped = KOREAN_TO_ENGLISH[q];
+  if (mapped) return mapped.split(/\s+/);
+  return [q];
+}
+
+// Search - OpenFDA (한글/영문 지원)
 async function searchDrugs(query) {
   if (!query.trim()) return;
   searchResults.innerHTML = '<div class="loading">검색 중...</div>';
-  const q = query.trim().replace(/"/g, '');
+  const terms = toSearchTerms(query);
+  const searchParts = terms.flatMap(t => [
+    `openfda.brand_name:"${t}"`,
+    `openfda.generic_name:"${t}"`
+  ]);
+  const searchQuery = searchParts.join('+OR+');
   try {
-    const searchQuery = `openfda.brand_name:"${q}"+OR+openfda.generic_name:"${q}"`;
     const res = await fetch(`${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`);
     const data = await res.json();
     if (data.error) throw new Error(data.error.message || 'API 오류');
     if (!data.results || data.results.length === 0) {
-      searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 영문으로 검색해 보세요 (예: tylenol, ibuprofen, acetaminophen)</p>';
+      searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 이부프로펜, tylenol)</p>';
       return;
     }
     renderSearchResults(data.results);
   } catch (err) {
-    searchResults.innerHTML = `<p class="error">검색 실패: ${err.message}. 영문으로 시도해 보세요.</p>`;
+    searchResults.innerHTML = `<p class="error">검색 실패: ${err.message}</p>`;
   }
 }
 
