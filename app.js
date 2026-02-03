@@ -1,5 +1,20 @@
 // OpenFDA API Base
 const FDA_API = 'https://api.fda.gov/drug/label.json';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+// CORS 우회가 필요한 경우 프록시 사용
+async function fetchFDA(url) {
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    const proxyUrl = CORS_PROXY + encodeURIComponent(url);
+    const res = await fetch(proxyUrl);
+    const text = await res.text();
+    return JSON.parse(text);
+  }
+}
 
 // DOM
 const views = document.querySelectorAll('.view');
@@ -47,8 +62,8 @@ async function searchDrugs(query) {
   ]);
   const searchQuery = searchParts.join('+OR+');
   try {
-    const res = await fetch(`${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`);
-    const data = await res.json();
+    const url = `${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`;
+    const data = await fetchFDA(url);
     if (data.error) throw new Error(data.error.message || 'API 오류');
     if (!data.results || data.results.length === 0) {
       searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 이부프로펜, tylenol)</p>';
