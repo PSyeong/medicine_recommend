@@ -1,18 +1,27 @@
 // OpenFDA API Base
 const FDA_API = 'https://api.fda.gov/drug/label.json';
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url='
+];
 
-// CORS 우회가 필요한 경우 프록시 사용
+// CORS 우회 - 직접 요청 실패 시 프록시 사용 (corsproxy.io 우선)
 async function fetchFDA(url) {
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    const proxyUrl = CORS_PROXY + encodeURIComponent(url);
-    const res = await fetch(proxyUrl);
+  const tryFetch = async (targetUrl) => {
+    const res = await fetch(targetUrl);
+    if (!res.ok) throw new Error(res.statusText);
     const text = await res.text();
     return JSON.parse(text);
+  };
+  try {
+    return await tryFetch(url);
+  } catch (e) {
+    for (const proxy of CORS_PROXIES) {
+      try {
+        return await tryFetch(proxy + encodeURIComponent(url));
+      } catch (_) { continue; }
+    }
+    throw e;
   }
 }
 

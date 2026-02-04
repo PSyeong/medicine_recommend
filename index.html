@@ -117,5 +117,10 @@
 
   <script src="data.js"></script>
   <script src="app.js"></script>
+  <script>
+    if (typeof KOREAN_TO_ENGLISH === 'undefined') {
+      document.body.innerHTML = '<p style="padding:2rem;color:red;">data.js를 불러올 수 없습니다. index.html과 같은 폴더에 data.js, app.js, styles.css가 있는지 확인하세요.</p>';
+    }
+  </script>
 </body>
 </html>
