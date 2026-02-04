@@ -1,24 +1,26 @@
 // OpenFDA API Base
 const FDA_API = 'https://api.fda.gov/drug/label.json';
 const CORS_PROXIES = [
-  'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url='
+  (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
 ];
 
-// CORS 우회 - 직접 요청 실패 시 프록시 사용 (corsproxy.io 우선)
+// CORS 우회 - 직접 요청 실패 시 프록시 사용
 async function fetchFDA(url) {
   const tryFetch = async (targetUrl) => {
     const res = await fetch(targetUrl);
     if (!res.ok) throw new Error(res.statusText);
     const text = await res.text();
-    return JSON.parse(text);
+    const data = JSON.parse(text);
+    if (data.error) throw new Error(data.error.message || 'API 오류');
+    return data;
   };
   try {
     return await tryFetch(url);
   } catch (e) {
-    for (const proxy of CORS_PROXIES) {
+    for (const toProxyUrl of CORS_PROXIES) {
       try {
-        return await tryFetch(proxy + encodeURIComponent(url));
+        return await tryFetch(toProxyUrl(url));
       } catch (_) { continue; }
     }
     throw e;
@@ -69,16 +71,21 @@ async function searchDrugs(query) {
     `openfda.brand_name:"${t}"`,
     `openfda.generic_name:"${t}"`
   ]);
-  const searchQuery = searchParts.join('+OR+');
+  const searchQuery = searchParts.join('+');
   try {
-    const url = `${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`;
-    const data = await fetchFDA(url);
-    if (data.error) throw new Error(data.error.message || 'API 오류');
-    if (!data.results || data.results.length === 0) {
+    let url = `${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`;
+    let data = await fetchFDA(url);
+    let results = Array.isArray(data.results) ? data.results : [];
+    if (results.length === 0 && terms.length > 0) {
+      url = `${FDA_API}?search=${encodeURIComponent(terms[0])}&limit=20`;
+      data = await fetchFDA(url);
+      results = Array.isArray(data.results) ? data.results : [];
+    }
+    if (results.length === 0) {
       searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 이부프로펜, tylenol)</p>';
       return;
     }
-    renderSearchResults(data.results);
+    renderSearchResults(results);
   } catch (err) {
     searchResults.innerHTML = `<p class="error">검색 실패: ${err.message}</p>`;
   }
