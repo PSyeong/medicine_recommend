@@ -65,10 +65,34 @@ function toSearchTerms(query) {
   return [q];
 }
 
-// Search - OpenFDA (한글/영문 지원, 단순 검색으로 안정성 확보)
+// 한국 의약품 로컬 검색 (품목명, 영문명, 업체명, 주성분, 분류명)
+function searchKoreanDrugs(query) {
+  if (!KOREAN_DRUG_DATABASE) return [];
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return KOREAN_DRUG_DATABASE.filter(d => {
+    const name = (d.name || '').toLowerCase();
+    const nameEn = (d.nameEn || '').toLowerCase();
+    const company = (d.company || '').toLowerCase();
+    const ingredient = (d.ingredient || '').toLowerCase();
+    const category = (d.category || '').toLowerCase();
+    return name.includes(q) || nameEn.includes(q) || company.includes(q) ||
+           ingredient.includes(q) || category.includes(q);
+  }).slice(0, 30);
+}
+
+// Search - 한국 의약품 우선, 없으면 OpenFDA
 async function searchDrugs(query) {
   if (!query.trim()) return;
   searchResults.innerHTML = '<div class="loading">검색 중...</div>';
+  let koreanResults = [];
+  if (typeof KOREAN_DRUG_DATABASE !== 'undefined') {
+    koreanResults = searchKoreanDrugs(query);
+  }
+  if (koreanResults.length > 0) {
+    renderSearchResults(koreanResults.map(d => ({ source: 'korean', data: d })));
+    return;
+  }
   const terms = toSearchTerms(query);
   let results = [];
   for (const term of terms) {
@@ -81,22 +105,36 @@ async function searchDrugs(query) {
   }
   try {
     if (results.length === 0) {
-      searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 이부프로펜, tylenol)</p>';
+      searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 게보린, 판콜, tylenol)</p>';
       return;
     }
-    renderSearchResults(results);
+    renderSearchResults(results.map(d => ({ source: 'fda', data: d })));
   } catch (err) {
     searchResults.innerHTML = `<p class="error">검색 실패: ${err.message}</p>`;
   }
 }
 
 function renderSearchResults(results) {
-  searchResults.innerHTML = results.map(drug => {
+  searchResults.innerHTML = results.map((item, i) => {
+    if (item.source === 'korean') {
+      const d = item.data;
+      const name = d.name || '-';
+      const ingredient = (d.ingredient || '-').substring(0, 80);
+      const category = d.category || '';
+      return `
+        <div class="drug-card" data-id="${i}" data-source="korean">
+          <h3>${name}</h3>
+          <p>성분: ${ingredient}${(d.ingredient || '').length > 80 ? '...' : ''}</p>
+          ${category ? `<p class="drug-category">${category}</p>` : ''}
+        </div>
+      `;
+    }
+    const drug = item.data;
     const brand = drug.openfda?.brand_name?.[0] || '-';
     const generic = drug.openfda?.generic_name?.[0] || '-';
     const purpose = drug.purpose?.[0]?.substring(0, 80) || drug.indications_and_usage?.[0]?.substring(0, 80) || '';
     return `
-      <div class="drug-card" data-id="${results.indexOf(drug)}">
+      <div class="drug-card" data-id="${i}" data-source="fda">
         <h3>${brand}</h3>
         <p>성분: ${generic}</p>
         ${purpose ? `<p>${purpose}...</p>` : ''}
@@ -104,35 +142,64 @@ function renderSearchResults(results) {
     `;
   }).join('');
   document.querySelectorAll('.drug-card').forEach(card => {
-    card.addEventListener('click', () => showDetail(results[parseInt(card.dataset.id)]));
+    card.addEventListener('click', () => {
+      const item = results[parseInt(card.dataset.id)];
+      showDetail(item.source, item.data);
+    });
   });
 }
 
-function showDetail(drug) {
-  const brand = drug.openfda?.brand_name?.[0] || '알 수 없음';
-  const generic = drug.openfda?.generic_name?.[0] || '-';
-  const sections = [
-    { title: '효능·효과', data: drug.indications_and_usage?.[0] || drug.purpose?.[0] || '정보 없음' },
-    { title: '용법·용량', data: drug.dosage_and_administration?.[0] || drug.dosage_and_administration?.[0] || '정보 없음' },
-    { title: '주의사항', data: drug.warnings?.[0] || drug.precautions?.[0] || '정보 없음' },
-    { title: '부작용', data: drug.adverse_reactions?.[0] || '정보 없음' },
-    { title: '금기', data: drug.contraindications?.[0] || '정보 없음' },
-    { title: '약물 상호작용', data: drug.drug_interactions?.[0] || '정보 없음' },
-    { title: '임신·수유', data: drug.pregnancy_or_breast_feeding?.[0] || '정보 없음' },
-  ];
-  detailContent.innerHTML = `
-    <div class="detail-section">
-      <h3>기본 정보</h3>
-      <p><strong>상품명:</strong> ${brand}</p>
-      <p><strong>성분명:</strong> ${generic}</p>
-    </div>
-    ${sections.map(s => `
+function showDetail(source, drug) {
+  if (source === 'korean') {
+    const d = drug;
+    const imgHtml = d.image ? `<img src="${d.image}" alt="${d.name}" class="drug-image" onerror="this.style.display='none'">` : '';
+    detailContent.innerHTML = `
       <div class="detail-section">
-        <h3>${s.title}</h3>
-        <p>${s.data.substring(0, 1500)}${s.data.length > 1500 ? '...' : ''}</p>
+        ${imgHtml}
+        <h3>기본 정보</h3>
+        <p><strong>품목명:</strong> ${d.name || '-'}</p>
+        ${d.nameEn ? `<p><strong>품목 영문명:</strong> ${d.nameEn}</p>` : ''}
+        <p><strong>업체명:</strong> ${d.company || '-'}</p>
+        <p><strong>전문/일반:</strong> ${d.type || '-'}</p>
       </div>
-    `).join('')}
-  `;
+      <div class="detail-section">
+        <h3>주성분</h3>
+        <p>${(d.ingredient || '정보 없음').replace(/\//g, ' / ')}</p>
+      </div>
+      ${d.category ? `
+      <div class="detail-section">
+        <h3>분류</h3>
+        <p>${d.category}</p>
+      </div>
+      ` : ''}
+      <p class="detail-source">출처: 식품의약품안전처 의약품통합정보시스템</p>
+    `;
+  } else {
+    const brand = drug.openfda?.brand_name?.[0] || '알 수 없음';
+    const generic = drug.openfda?.generic_name?.[0] || '-';
+    const sections = [
+      { title: '효능·효과', data: drug.indications_and_usage?.[0] || drug.purpose?.[0] || '정보 없음' },
+      { title: '용법·용량', data: drug.dosage_and_administration?.[0] || drug.dosage_and_administration?.[0] || '정보 없음' },
+      { title: '주의사항', data: drug.warnings?.[0] || drug.precautions?.[0] || '정보 없음' },
+      { title: '부작용', data: drug.adverse_reactions?.[0] || '정보 없음' },
+      { title: '금기', data: drug.contraindications?.[0] || '정보 없음' },
+      { title: '약물 상호작용', data: drug.drug_interactions?.[0] || '정보 없음' },
+      { title: '임신·수유', data: drug.pregnancy_or_breast_feeding?.[0] || '정보 없음' },
+    ];
+    detailContent.innerHTML = `
+      <div class="detail-section">
+        <h3>기본 정보</h3>
+        <p><strong>상품명:</strong> ${brand}</p>
+        <p><strong>성분명:</strong> ${generic}</p>
+      </div>
+      ${sections.map(s => `
+        <div class="detail-section">
+          <h3>${s.title}</h3>
+          <p>${s.data.substring(0, 1500)}${s.data.length > 1500 ? '...' : ''}</p>
+        </div>
+      `).join('')}
+    `;
+  }
   document.getElementById('viewSearch').classList.remove('active');
   document.getElementById('viewSearch').classList.add('hidden');
   viewDetail.classList.add('active');
@@ -148,6 +215,76 @@ backBtn.addEventListener('click', () => {
 
 searchBtn.addEventListener('click', () => searchDrugs(searchInput.value));
 searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchDrugs(searchInput.value); });
+
+// 자동검색어 추천 (입력 시 실시간)
+const searchSuggestions = document.getElementById('searchSuggestions');
+let suggestTimeout = null;
+
+function getSuggestions(query) {
+  if (!query.trim() || typeof KOREAN_DRUG_DATABASE === 'undefined') return [];
+  const q = query.trim().toLowerCase();
+  const matches = KOREAN_DRUG_DATABASE.filter(d => {
+    const name = (d.name || '').toLowerCase();
+    const nameEn = (d.nameEn || '').toLowerCase();
+    return name.includes(q) || nameEn.includes(q);
+  });
+  const seen = new Set();
+  return matches.filter(d => {
+    const key = (d.name || '').trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 8);
+}
+
+function showSuggestions(items) {
+  if (!items.length) {
+    searchSuggestions.classList.remove('visible');
+    searchSuggestions.innerHTML = '';
+    return;
+  }
+  searchSuggestions.innerHTML = items.map(d => `
+    <div class="suggestion-item" data-name="${(d.name || '').replace(/"/g, '&quot;')}">${d.name || '-'}</div>
+  `).join('');
+  searchSuggestions.classList.add('visible');
+  searchSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+    el.addEventListener('click', () => {
+      searchInput.value = el.dataset.name;
+      searchSuggestions.classList.remove('visible');
+      searchSuggestions.innerHTML = '';
+      searchDrugs(el.dataset.name);
+    });
+  });
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(suggestTimeout);
+  const q = searchInput.value.trim();
+  if (!q) {
+    searchSuggestions.classList.remove('visible');
+    searchSuggestions.innerHTML = '';
+    return;
+  }
+  suggestTimeout = setTimeout(() => {
+    showSuggestions(getSuggestions(q));
+  }, 150);
+});
+
+searchInput.addEventListener('focus', () => {
+  const q = searchInput.value.trim();
+  if (q) showSuggestions(getSuggestions(q));
+});
+
+searchInput.addEventListener('blur', () => {
+  setTimeout(() => searchSuggestions.classList.remove('visible'), 200);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    searchSuggestions.classList.remove('visible');
+    searchInput.blur();
+  }
+});
 
 // Interaction Checker
 const interactionDrugInput = document.getElementById('interactionDrugInput');

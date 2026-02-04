@@ -23,9 +23,12 @@
     <main class="main">
       <!-- 검색 뷰 -->
       <section class="view view-search active" id="viewSearch">
-        <div class="search-box">
-          <input type="text" id="searchInput" placeholder="의약품명 검색 (한글/영문: 타이레놀, 이부프로펜, tylenol...)" autocomplete="off">
-          <button class="btn btn-primary" id="searchBtn">검색</button>
+        <div class="search-box-wrapper">
+          <div class="search-box">
+            <input type="text" id="searchInput" placeholder="의약품명 검색 (한글 5,600+건, 영문: 타이레놀, 게보린, 판콜...)" autocomplete="off">
+            <button class="btn btn-primary" id="searchBtn">검색</button>
+          </div>
+          <div class="search-suggestions" id="searchSuggestions"></div>
         </div>
         <div class="search-results" id="searchResults"></div>
       </section>
@@ -116,6 +119,8 @@
   </div>
 
   <script src="data.js"></script>
+  <script src="korean-drugs.js"></script>
+  <script>if(typeof KOREAN_DRUG_DATABASE==='undefined'){var KOREAN_DRUG_DATABASE=[];}</script>
   <script src="app.js"></script>
   <script>
     if (typeof KOREAN_TO_ENGLISH === 'undefined') {
