@@ -217,74 +217,80 @@ searchBtn.addEventListener('click', () => searchDrugs(searchInput.value));
 searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchDrugs(searchInput.value); });
 
 // 자동검색어 추천 (입력 시 실시간)
-const searchSuggestions = document.getElementById('searchSuggestions');
-let suggestTimeout = null;
+function initAutocomplete() {
+  const searchSuggestions = document.getElementById('searchSuggestions');
+  if (!searchSuggestions) return;
+  let suggestTimeout = null;
 
-function getSuggestions(query) {
-  if (!query.trim() || typeof KOREAN_DRUG_DATABASE === 'undefined') return [];
-  const q = query.trim().toLowerCase();
-  const matches = KOREAN_DRUG_DATABASE.filter(d => {
-    const name = (d.name || '').toLowerCase();
-    const nameEn = (d.nameEn || '').toLowerCase();
-    return name.includes(q) || nameEn.includes(q);
-  });
-  const seen = new Set();
-  return matches.filter(d => {
-    const key = (d.name || '').trim();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 8);
-}
-
-function showSuggestions(items) {
-  if (!items.length) {
-    searchSuggestions.classList.remove('visible');
-    searchSuggestions.innerHTML = '';
-    return;
+  function getSuggestions(query) {
+    if (!query.trim() || typeof KOREAN_DRUG_DATABASE === 'undefined') return [];
+    const q = query.trim().toLowerCase();
+    const matches = KOREAN_DRUG_DATABASE.filter(d => {
+      const name = (d.name || '').toLowerCase();
+      const nameEn = (d.nameEn || '').toLowerCase();
+      return name.includes(q) || nameEn.includes(q);
+    });
+    const seen = new Set();
+    return matches.filter(d => {
+      const key = (d.name || '').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 8);
   }
-  searchSuggestions.innerHTML = items.map(d => `
-    <div class="suggestion-item" data-name="${(d.name || '').replace(/"/g, '&quot;')}">${d.name || '-'}</div>
-  `).join('');
-  searchSuggestions.classList.add('visible');
-  searchSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
-    el.addEventListener('click', () => {
-      searchInput.value = el.dataset.name;
+
+  function showSuggestions(items) {
+    if (!items.length) {
       searchSuggestions.classList.remove('visible');
       searchSuggestions.innerHTML = '';
-      searchDrugs(el.dataset.name);
+      return;
+    }
+    searchSuggestions.innerHTML = items.map(d => `
+      <div class="suggestion-item" data-name="${(d.name || '').replace(/"/g, '&quot;')}">${d.name || '-'}</div>
+    `).join('');
+    searchSuggestions.classList.add('visible');
+    searchSuggestions.querySelectorAll('.suggestion-item').forEach(el => {
+      el.addEventListener('click', () => {
+        searchInput.value = el.dataset.name;
+        searchSuggestions.classList.remove('visible');
+        searchSuggestions.innerHTML = '';
+        searchDrugs(el.dataset.name);
+      });
     });
+  }
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(suggestTimeout);
+    const q = searchInput.value.trim();
+    if (!q) {
+      searchSuggestions.classList.remove('visible');
+      searchSuggestions.innerHTML = '';
+      return;
+    }
+    suggestTimeout = setTimeout(() => showSuggestions(getSuggestions(q)), 150);
+  });
+
+  searchInput.addEventListener('focus', () => {
+    const q = searchInput.value.trim();
+    if (q) showSuggestions(getSuggestions(q));
+  });
+
+  searchInput.addEventListener('blur', () => {
+    setTimeout(() => searchSuggestions.classList.remove('visible'), 200);
+  });
+
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      searchSuggestions.classList.remove('visible');
+      searchInput.blur();
+    }
   });
 }
-
-searchInput.addEventListener('input', () => {
-  clearTimeout(suggestTimeout);
-  const q = searchInput.value.trim();
-  if (!q) {
-    searchSuggestions.classList.remove('visible');
-    searchSuggestions.innerHTML = '';
-    return;
-  }
-  suggestTimeout = setTimeout(() => {
-    showSuggestions(getSuggestions(q));
-  }, 150);
-});
-
-searchInput.addEventListener('focus', () => {
-  const q = searchInput.value.trim();
-  if (q) showSuggestions(getSuggestions(q));
-});
-
-searchInput.addEventListener('blur', () => {
-  setTimeout(() => searchSuggestions.classList.remove('visible'), 200);
-});
-
-searchInput.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    searchSuggestions.classList.remove('visible');
-    searchInput.blur();
-  }
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAutocomplete);
+} else {
+  initAutocomplete();
+}
 
 // Interaction Checker
 const interactionDrugInput = document.getElementById('interactionDrugInput');
