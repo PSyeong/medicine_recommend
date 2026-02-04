@@ -53,6 +53,27 @@ const INTERACTION_DATABASE = {
   "나프록센": ["아스피린", "와파린", "이부프로펜"],
 };
 
+// 검색어 확장 (동의어) - 타이레놀↔acetaminophen↔Tylenol 등 동일 의약품 검색
+const SEARCH_TERM_ALIASES = {
+  "타이레놀": ["타이레놀", "tylenol", "acetaminophen", "아세트아미노펜"],
+  "아세트아미노펜": ["아세트아미노펜", "acetaminophen", "tylenol", "타이레놀"],
+  "acetaminophen": ["acetaminophen", "tylenol", "타이레놀", "아세트아미노펜"],
+  "tylenol": ["tylenol", "acetaminophen", "타이레놀", "아세트아미노펜"],
+  "이부프로펜": ["이부프로펜", "ibuprofen"],
+  "ibuprofen": ["ibuprofen", "이부프로펜"],
+  "아스피린": ["아스피린", "aspirin", "게보린"],
+  "aspirin": ["aspirin", "아스피린", "게보린"],
+  "게보린": ["게보린", "aspirin", "아스피린"],
+  "오메프라졸": ["오메프라졸", "omeprazole"],
+  "omeprazole": ["omeprazole", "오메프라졸"],
+  "나프록센": ["나프록센", "naproxen"],
+  "naproxen": ["naproxen", "나프록센"],
+  "메트포르민": ["메트포르민", "metformin"],
+  "metformin": ["metformin", "메트포르민"],
+  "로라타딘": ["로라타딘", "loratadine"],
+  "loratadine": ["loratadine", "로라타딘"],
+};
+
 // 한글 → 영문 검색 매핑 (OpenFDA API용)
 const KOREAN_TO_ENGLISH = {
   "타이레놀": "tylenol acetaminophen",

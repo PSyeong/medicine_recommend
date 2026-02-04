@@ -65,20 +65,42 @@ function toSearchTerms(query) {
   return [q];
 }
 
-// 한국 의약품 로컬 검색 (품목명, 영문명, 업체명, 주성분, 분류명)
+// 검색어 확장 (타이레놀 → acetaminophen, Tylenol 등)
+function getExpandedSearchTerms(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [query];
+  if (typeof SEARCH_TERM_ALIASES !== 'undefined') {
+    const aliases = SEARCH_TERM_ALIASES[q] || SEARCH_TERM_ALIASES[query.trim()];
+    if (aliases) return [...new Set([q, ...aliases.map(a => (a + '').toLowerCase())])];
+  }
+  const mapped = KOREAN_TO_ENGLISH[q];
+  if (mapped) return [q, ...mapped.split(/\s+/)];
+  return [q];
+}
+
+// 한국 의약품 로컬 검색 (품목명, 영문명, 업체명, 주성분, 분류명) - 확장 검색어 적용
 function searchKoreanDrugs(query) {
   if (!KOREAN_DRUG_DATABASE) return [];
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return KOREAN_DRUG_DATABASE.filter(d => {
-    const name = (d.name || '').toLowerCase();
-    const nameEn = (d.nameEn || '').toLowerCase();
-    const company = (d.company || '').toLowerCase();
-    const ingredient = (d.ingredient || '').toLowerCase();
-    const category = (d.category || '').toLowerCase();
-    return name.includes(q) || nameEn.includes(q) || company.includes(q) ||
-           ingredient.includes(q) || category.includes(q);
-  }).slice(0, 30);
+  const terms = getExpandedSearchTerms(query);
+  const seen = new Map();
+  for (const t of terms) {
+    if (!t || t.length < 1) continue;
+    const ql = (t + '').toLowerCase();
+    KOREAN_DRUG_DATABASE.forEach(d => {
+      const name = (d.name || '').toLowerCase();
+      const nameEn = (d.nameEn || '').toLowerCase();
+      const company = (d.company || '').toLowerCase();
+      const ingredient = (d.ingredient || '').toLowerCase();
+      const category = (d.category || '').toLowerCase();
+      const match = name.includes(ql) || nameEn.includes(ql) || company.includes(ql) ||
+        ingredient.includes(ql) || category.includes(ql);
+      if (match) {
+        const key = (d.name || '') + '|' + (d.company || '');
+        if (!seen.has(key)) seen.set(key, d);
+      }
+    });
+  }
+  return Array.from(seen.values()).slice(0, 30);
 }
 
 // Search - 한국 의약품 우선, 없으면 OpenFDA
