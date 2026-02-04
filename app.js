@@ -12,7 +12,10 @@ async function fetchFDA(url) {
     if (!res.ok) throw new Error(res.statusText);
     const text = await res.text();
     const data = JSON.parse(text);
-    if (data.error) throw new Error(data.error.message || 'API 오류');
+    if (data.error) {
+      if (data.error.message && data.error.message.includes('No matches')) return { results: [] };
+      throw new Error(data.error.message || 'API 오류');
+    }
     return data;
   };
   try {
@@ -62,25 +65,21 @@ function toSearchTerms(query) {
   return [q];
 }
 
-// Search - OpenFDA (한글/영문 지원)
+// Search - OpenFDA (한글/영문 지원, 단순 검색으로 안정성 확보)
 async function searchDrugs(query) {
   if (!query.trim()) return;
   searchResults.innerHTML = '<div class="loading">검색 중...</div>';
   const terms = toSearchTerms(query);
-  const searchParts = terms.flatMap(t => [
-    `openfda.brand_name:"${t}"`,
-    `openfda.generic_name:"${t}"`
-  ]);
-  const searchQuery = searchParts.join('+');
-  try {
-    let url = `${FDA_API}?search=${encodeURIComponent(searchQuery)}&limit=20`;
-    let data = await fetchFDA(url);
-    let results = Array.isArray(data.results) ? data.results : [];
-    if (results.length === 0 && terms.length > 0) {
-      url = `${FDA_API}?search=${encodeURIComponent(terms[0])}&limit=20`;
-      data = await fetchFDA(url);
+  let results = [];
+  for (const term of terms) {
+    try {
+      const url = `${FDA_API}?search=${encodeURIComponent(term)}&limit=20`;
+      const data = await fetchFDA(url);
       results = Array.isArray(data.results) ? data.results : [];
-    }
+      if (results.length > 0) break;
+    } catch (_) { continue; }
+  }
+  try {
     if (results.length === 0) {
       searchResults.innerHTML = '<p class="error">검색 결과가 없습니다. 다른 검색어로 시도해 보세요 (예: 타이레놀, 이부프로펜, tylenol)</p>';
       return;
